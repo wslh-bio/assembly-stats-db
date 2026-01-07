@@ -9,6 +9,7 @@ import urllib.request
 import numpy as np
 import statistics
 from datetime import datetime
+import gzip
 
 
 logging.basicConfig(level = logging.INFO, format = '%(levelname)s : %(message)s')
@@ -61,59 +62,33 @@ def parse_gc_percent(value):
         return None
 
 
-def calculate_assembly_stats(url, target_taxid, sample_name, assembly_length, total_tax, sample_gc_percent, found):
+def calculate_assembly_stats(assembly_summary_file):
     """
-    Stream through the NCBI assembly_summary_refseq.txt file,
+    Process the NCBI assembly_summary_refseq.txt file,
     compute mean genome_size (after IQR filtering) and mean gc_percent
     for all records matching the target_taxid.
+    Output the NCBI_Assembly_stats_{YYMMDD}.txt file.
     """
-
-    logging.info(f"Fetching NCBI assembly summary for taxid {target_taxid} ...")
 
     genome_sizes = []
     gc_percents = []
 
     try:
-        with urllib.request.urlopen(url) as response:
-            for raw_line in response:
-                line = raw_line.decode("utf-8").strip()
-                if not line or line.startswith("#"):
-                    continue
+        with gzip.open(assembly_summary_file, "rt") as asf:
+                for line in asf:
+                    if not line or line.startswith("#"):
+                        continue
 
-                cols = line.split("\t")
-                if len(cols) <= 27:  # At minimum, column count should go to column 27 (zero-based numbering), which is 'gc_percent'. 
-                    continue
-
-                taxid = cols[5].strip()
-                if taxid != str(target_taxid):
-                    continue  # skip rows that are not target tax ID
-
-                if total_tax == None:
-                    total_tax = cols[7].strip()
-
-                found = True
-
-                genome_size_val = cols[25].strip()
-                gc_percent_val = parse_gc_percent(cols[27].strip())  # Remove all gc_percent values over 100
-
-                # Handle strings in genome_size and validate numeric fields
-                if is_float(genome_size_val) and gc_percent_val is not None:
-                    genome_size = float(genome_size_val)
-                    gc_percent = float(gc_percent_val)
-                    genome_sizes.append(genome_size)
-                    gc_percents.append(gc_percent)
-                else:
-                    logging.debug(
-                        f"Skipping malformed entry for taxid {taxid}: genome_size='{genome_size_val}', gc_percent='{gc_percent_val}'"
-                    )
-        
-        if not found:
-            logging.warning(f"No NCBI matches found for target taxid '{target_taxid}'")
-            return None
-
-        if not genome_sizes:
-            logging.warning(f"No valid genome entries found for taxid {target_taxid}")
-            return None, None
+            # # Handle strings in genome_size and validate numeric fields
+            # if is_float(genome_size_val) and gc_percent_val is not None:
+            #     genome_size = float(genome_size_val)
+            #     gc_percent = float(gc_percent_val)
+            #     genome_sizes.append(genome_size)
+            #     gc_percents.append(gc_percent)
+            # else:
+            #     logging.debug(
+            #         f"Skipping malformed entry for taxid {taxid}: genome_size='{genome_size_val}', gc_percent='{gc_percent_val}'"
+            #     )
 
         # --- IQR filtering on genome_size and gc_percent ---
         Q1 = np.percentile(genome_sizes, 25)
