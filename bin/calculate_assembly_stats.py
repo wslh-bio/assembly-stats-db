@@ -16,7 +16,7 @@ logging.basicConfig(level = logging.INFO, format = '%(levelname)s : %(message)s'
 timestamp = datetime.now().strftime("%Y%m%d")
 
 def parse_args(args=None):
-    Description='Compare local assembly to expected assembly size based on taxonomy.'
+    Description='Generate a database with assembly statistics from RefSeq assembly summary file. '
 
     parser = argparse.ArgumentParser(description=Description)
     parser.add_argument('-d', '--path_database',
