@@ -90,25 +90,35 @@ def iqr_filter(values):
 
 def calculate_assembly_stats(assembly_summary_file):
     """
-    Process the NCBI assembly_summary_refseq.txt file,
-    compute mean genome_size (after IQR filtering) and mean gc_percent
-    for all records matching the target_taxid.
+    Stream the RefSeq assembly summary file and compute
+    per-taxid aggregated statistics.
     Output the NCBI_Assembly_stats_{YYMMDD}.txt file.
     """
 
+    logging.info("Reading assembly summary file...")
 
-    try:
-        with gzip.open(assembly_summary_file, "rt") as asf:
-                for line in asf:
-                    if not line or line.startswith("#"):
-                        continue
+
+    with open_gzip(assembly_summary_file) as fh:
+        for line in fh:
+            if line.startswith("#"):
+                continue
+
+            fields = line.rstrip("\n").split("\t")
 
 
         # with open(f"NCBI_Assembly_stats_{timestamp}.txt", 'w') as outfile:
         #             outfile.write(f"Sample: {sample_name}\nTax: {total_tax}\nNCBI_TAXID: {target_taxid}\nSpecies_GC_StDev: {species_gc_percent_stdev}\nSpecies_GC_Min: {gc_min}\nSpecies_GC_Max: {gc_max}\nSpecies_GC_Mean: {species_gc_mean}\nSpecies_GC_Count: {gc_count}\nSample_GC_Percent: {sample_gc_percent}")
 
         # List of column headers: Species, Min, Max, Median, Mean, StDev, Assembly_count, GC_Min, GC_Max, GC_Median, GC_Mean, GC_Stdev, GC_count, CDS_Min, CDS_Max, CDS_Median, CDS_Mean, CDS_Stdev, CDS_count, Consensus_TAXID
+
+def main():
+    args = parse_args()
+
+    if args.version:
+        print("assembly-stats-db v0.1.0")
+        return
     
-    except Exception as e:
-        logging.error(f"Error computing taxid genome stats for {target_taxid}: {e}")
-        return None
+    calculate_assembly_stats(args.path_database)
+
+if __name__ == "__main__":
+    main()
