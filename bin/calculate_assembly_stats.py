@@ -157,7 +157,24 @@ def main():
         print("assembly-stats-db v0.1.0")
         return
     
-    calculate_assembly_stats(args.path_database)
+    rows = calculate_assembly_stats(args.path_database)
+
+    output_db = f"NCBI_Assembly_Stats_{timestamp}.txt"
+
+    header = [
+        "Species",
+        "Min", "Max", "Median", "Mean", "StDev", "Assembly_count",
+        "GC_Min", "GC_Max", "GC_Median", "GC_Mean", "GC_Stdev", "GC_count",
+        "CDS_Min", "CDS_Max", "CDS_Median", "CDS_Mean", "CDS_Stdev", "CDS_count",
+        "Consensus_TAXID"
+    ]
+
+    logging.info(f"Writing output file: {output_db}")
+
+    with open(output_db, "w") as out:
+        out.write("\t".join(header) + "\n")
+        for row in rows:
+            out.write("\t".join(map(str, row)) + "\n")
 
 if __name__ == "__main__":
     main()
