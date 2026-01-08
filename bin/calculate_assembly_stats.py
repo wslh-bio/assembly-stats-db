@@ -10,6 +10,7 @@ import numpy as np
 import statistics
 from datetime import datetime
 import gzip
+from collections import defaultdict
 
 
 logging.basicConfig(level = logging.INFO, format = '%(levelname)s : %(message)s')
@@ -95,6 +96,14 @@ def calculate_assembly_stats(assembly_summary_file):
     Output the NCBI_Assembly_stats_{YYMMDD}.txt file.
     """
 
+    # Initialize the tax ID dictionary
+    taxid_data = defaultdict(lambda: {
+        "species": None,
+        "genome_size": [],
+        "gc_percent": [],
+        "cds_count": []
+    })
+
     logging.info("Reading assembly summary file...")
 
 
@@ -104,6 +113,36 @@ def calculate_assembly_stats(assembly_summary_file):
                 continue
 
             fields = line.rstrip("\n").split("\t")
+
+            try:
+                taxid = int(fields[5])
+                organism_name = fields[7]
+                genome_size = fields[25]
+                gc_percent = parse_gc_percent(fields[27])
+                cds = fields[35]
+            except (IndexError, ValueError):
+                continue
+
+            entry = taxid_data[taxid]
+
+            if entry["species"] is None:
+                entry["species"] = organism_name
+            elif entry["species"] != organism_name:
+                logging.debug(
+                    f"TaxID {taxid} has multiple organism names: "
+                    f"{entry['species']} vs {organism_name}"
+                )
+
+            if is_float(genome_size):
+                entry["genome_size"].append(float(genome_size))
+
+            if gc_percent is not None:
+                entry["gc_percent"].append(gc_percent)
+
+            if is_float(cds):
+                entry["cds_count"].append(int(float(cds)))
+
+    logging.info(f"Collected data for {len(taxid_data)} tax IDs")
 
 
         # with open(f"NCBI_Assembly_stats_{timestamp}.txt", 'w') as outfile:
