@@ -145,11 +145,6 @@ def calculate_assembly_stats(assembly_summary_file):
     logging.info(f"Collected data for {len(taxid_data)} tax IDs")
 
 
-        # with open(f"NCBI_Assembly_stats_{timestamp}.txt", 'w') as outfile:
-        #             outfile.write(f"Sample: {sample_name}\nTax: {total_tax}\nNCBI_TAXID: {target_taxid}\nSpecies_GC_StDev: {species_gc_percent_stdev}\nSpecies_GC_Min: {gc_min}\nSpecies_GC_Max: {gc_max}\nSpecies_GC_Mean: {species_gc_mean}\nSpecies_GC_Count: {gc_count}\nSample_GC_Percent: {sample_gc_percent}")
-
-        # List of column headers: Species, Min, Max, Median, Mean, StDev, Assembly_count, GC_Min, GC_Max, GC_Median, GC_Mean, GC_Stdev, GC_count, CDS_Min, CDS_Max, CDS_Median, CDS_Mean, CDS_Stdev, CDS_count, Consensus_TAXID
-
 def main():
     args = parse_args()
 
