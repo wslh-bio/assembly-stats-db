@@ -89,6 +89,20 @@ def iqr_filter(values):
     return [v for v in values if lower <= v <= upper]
 
 
+def summarize(values):
+    if not values:
+        return ["NA"] * 6
+
+    return [
+        min(values),
+        max(values),
+        statistics.median(values),
+        statistics.mean(values),
+        statistics.stdev(values) if len(values) >= 2 else 0,
+        len(values)
+    ]
+
+
 def calculate_assembly_stats(assembly_summary_file):
     """
     Stream the RefSeq assembly summary file and compute
@@ -144,6 +158,27 @@ def calculate_assembly_stats(assembly_summary_file):
 
     logging.info(f"Collected data for {len(taxid_data)} tax IDs")
 
+    records = []
+
+    for taxid, data in taxid_data.items():
+        gs = iqr_filter(data["genome_size"])
+        gc = iqr_filter(data["gc_percent"])
+        cds = iqr_filter(data["cds_count"])
+
+        gs_min, gs_max, gs_med, gs_mean, gs_sd, gs_n = summarize(gs)
+        gc_min, gc_max, gc_med, gc_mean, gc_sd, gc_n = summarize(gc)
+        cds_min, cds_max, cds_med, cds_mean, cds_sd, cds_n = summarize(cds)
+
+        records.append([
+            data["species"],
+            gs_min, gs_max, gs_med, gs_mean, gs_sd, gs_n,
+            gc_min, gc_max, gc_med, gc_mean, gc_sd, gc_n,
+            cds_min, cds_max, cds_med, cds_mean, cds_sd, cds_n,
+            taxid
+        ])
+
+    return records
+
 
 def main():
     args = parse_args()
@@ -152,7 +187,7 @@ def main():
         print("assembly-stats-db v0.1.0")
         return
     
-    rows = calculate_assembly_stats(args.path_database)
+    records = calculate_assembly_stats(args.path_database)
 
     output_db = f"NCBI_Assembly_Stats_{timestamp}.txt"
 
@@ -168,8 +203,8 @@ def main():
 
     with open(output_db, "w") as out:
         out.write("\t".join(header) + "\n")
-        for row in rows:
-            out.write("\t".join(map(str, row)) + "\n")
+        for record in records:
+            out.write("\t".join(map(str, record)) + "\n")
 
 if __name__ == "__main__":
     main()
