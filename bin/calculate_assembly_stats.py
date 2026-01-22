@@ -102,6 +102,12 @@ def summarize(values):
         len(values)
     ]
 
+def bp_to_mb(value):
+    """
+    Convert base pairs to megabase pairs (Mb).
+    """
+    return value / 1_000_000
+
 
 def calculate_assembly_stats(assembly_summary_file):
     """
@@ -168,6 +174,14 @@ def calculate_assembly_stats(assembly_summary_file):
         gs_min, gs_max, gs_med, gs_mean, gs_sd, gs_n = summarize(gs)
         gc_min, gc_max, gc_med, gc_mean, gc_sd, gc_n = summarize(gc)
         cds_min, cds_max, cds_med, cds_mean, cds_sd, cds_n = summarize(cds)
+
+        # Convert genome size stats to Mb
+        if gs_min != "NA":
+            gs_min = bp_to_mb(gs_min)
+            gs_max = bp_to_mb(gs_max)
+            gs_med = bp_to_mb(gs_med)
+            gs_mean = bp_to_mb(gs_mean)
+            gs_sd = bp_to_mb(gs_sd)
 
         records.append([
             data["species"],
