@@ -88,6 +88,8 @@ Python ≥ 3.8 is recommended
 
 ## Usage
 
+`python3 bin/calculate_assembly_stats.py -d assets/assembly_summary_refseq_YYYYMMDD.txt.gz`
+
 ## Output
 
 The script generates the aggregated database named:
