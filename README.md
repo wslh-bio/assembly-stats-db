@@ -36,7 +36,7 @@ The resulting file follows the naming convention:
 
 ---
 
-## Why Megabase Pairs (Mb)?
+## Megabase Pairs (Mb)
 
 This tool reports genome sizes in **megabase pairs**, not base pairs.
 
