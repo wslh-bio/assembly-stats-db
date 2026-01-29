@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-import re
-import os
 import logging
-import sys
-import pandas as pd
 import urllib.request
 import numpy as np
 import statistics
