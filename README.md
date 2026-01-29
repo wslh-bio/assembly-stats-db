@@ -88,10 +88,80 @@ Python ≥ 3.8 is recommended
 
 ## Usage
 
-`python3 bin/calculate_assembly_stats.py -d assets/assembly_summary_refseq_YYYYMMDD.txt.gz`
+`python3 bin/calculate_assembly_stats.py -d assets/summary/assembly_summary_refseq_YYYYMMDD.txt.gz`
 
 ## Output
 
 The script generates the aggregated database named:
 
 `NCBI_Assembly_Stats_YYYYMMDD.txt`
+
+
+---
+
+## Automated Monthly Database Updates (GitHub Actions)
+
+This repository includes a GitHub Actions workflow that automatically updates the RefSeq assembly statistics database on a monthly basis.
+
+The workflow performs the following steps:
+
+1. **Downloads the latest NCBI RefSeq assembly summary file**
+   - Source:
+     ```
+     https://ftp.ncbi.nlm.nih.gov/genomes/refseq/assembly_summary_refseq.txt
+     ```
+   - The file is compressed and stored locally as:
+
+     ```
+     assets/summary/assembly_summary_refseq_YYMMDD.txt.gz
+     ```
+
+2. **Generates an aggregated assembly statistics database**
+   - Runs:
+
+     ```bash
+     python3 bin/calculate_assembly_stats.py -d assets/summary/assembly_summary_refseq_YYMMDD.txt.gz
+     ```
+
+   - Produces:
+
+     ```
+     assets/database/NCBI_Assembly_Stats_YYMMDD.txt
+     ```
+
+3. **Overwrites previous databases**
+   - Only one summary file and one generated database are retained at any time.
+   - Each monthly update replaces the previous version.
+
+4. **Commits the updated files back to the repository**
+   - Commits are created automatically by the GitHub Actions bot.
+
+---
+
+### Repository Layout After Automation
+
+```
+assembly-stats-db
+├── assets
+│   ├── summary
+│   │   └── assembly_summary_refseq_YYMMDD.txt.gz
+│   └── database
+│       └── NCBI_Assembly_Stats_YYMMDD.txt
+├── bin
+│   └── calculate_assembly_stats.py
+├── .github
+│   └── workflows
+│       └── update-assembly-stats.yml
+```
+
+---
+
+## ⏱️ Workflow Schedule
+
+The database is updated automatically **once per month** using a scheduled GitHub Action:
+
+```
+schedule:
+  - cron: "0 2 1 * *"
+  
+This means the workflow will run at 02:00 UTC on the 1st day of every month
