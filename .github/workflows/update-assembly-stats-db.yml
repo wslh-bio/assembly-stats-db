@@ -1,0 +1,62 @@
+name: Update NCBI Assembly Stats Database
+
+on:
+  schedule:
+    # Run once per month (1st day of the month at 02:00 UTC)
+    - cron: "0 2 1 * *"
+  workflow_dispatch:
+
+jobs:
+  update-db:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install numpy
+
+      - name: Set date variables
+        run: |
+          echo "YYMMDD=$(date +%y%m%d)" >> $GITHUB_ENV
+          echo "YYYYMMDD=$(date +%Y%m%d)" >> $GITHUB_ENV
+
+      - name: Create asset directories
+        run: |
+          mkdir -p assets/summary
+          mkdir -p assets/generated
+
+      - name: Download RefSeq assembly summary (gzipped)
+        run: |
+          curl -L https://ftp.ncbi.nlm.nih.gov/genomes/refseq/assembly_summary_refseq.txt | gzip -c > assets/summary/assembly_summary_refseq_${YYMMDD}.txt.gz
+
+      - name: Remove old summary files
+        run: |
+          ls assets/summary/assembly_summary_refseq_*.txt.gz| grep -v "${YYMMDD}" | xargs -r rm
+
+      - name: Generate assembly statistics database
+        run: |
+          python3 bin/calculate_assembly_stats.py -d assets/summary/assembly_summary_refseq_${YYMMDD}.txt.gz
+
+      - name: Move generated database to assets directory
+        run: |
+          mv NCBI_Assembly_Stats_${YYYYMMDD}.txt assets/generated/NCBI_Assembly_Stats_${YYMMDD}.txt
+
+      - name: Remove old generated databases
+        run: |
+          ls assets/generated/NCBI_Assembly_Stats_*.txt | grep -v "${YYMMDD}" | xargs -r rm
+
+      - name: Commit and push updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/summary assets/generated
+          git commit -m "Monthly update: RefSeq assembly stats (${YYMMDD})" || echo "No changes to commit"
+          git push
