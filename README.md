@@ -156,7 +156,7 @@ assembly-stats-db
 
 ---
 
-## ⏱️ Workflow Schedule
+## Workflow Schedule
 
 The database is updated automatically **once per month** using a scheduled GitHub Action:
 
@@ -165,3 +165,5 @@ schedule:
   - cron: "0 2 1 * *"
   
 This means the workflow will run at 02:00 UTC on the 1st day of every month
+
+When the workflow runs, a new release tagged with the date in YYMMDD format will be generated.
