@@ -60,3 +60,22 @@ jobs:
           git add assets/summary assets/database
           git commit -m "Monthly update: RefSeq assembly stats (${YYMMDD})" || echo "No changes to commit"
           git push
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.YYYYMMDD }}
+          name: NCBI Assembly Stats Database – ${{ env.YYYYMMDD }}
+          body: |
+            Automated monthly update of the RefSeq assembly statistics database.
+
+            **Source file**
+            - assembly_summary_refseq_${{ env.YYMMDD }}.txt.gz
+
+            **Generated database**
+            - NCBI_Assembly_Stats_${{ env.YYMMDD }}.txt
+
+          files: |
+            assets/database/NCBI_Assembly_Stats_${{ env.YYMMDD }}.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
