@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 import argparse
-import re
-import os
 import logging
-import sys
-import pandas as pd
 import urllib.request
 import numpy as np
 import statistics
 from datetime import datetime
+import gzip
+from collections import defaultdict
 
 
 logging.basicConfig(level = logging.INFO, format = '%(levelname)s : %(message)s')
@@ -30,6 +28,15 @@ def parse_args(args=None):
         help='Print version and exit'
         )
     return parser.parse_args(args)
+
+
+def open_gzip(path):
+    """
+    Open a gzipped file from a local path or URL.
+    """
+    if path.startswith(("http://", "https://")):
+        return gzip.open(urllib.request.urlopen(path), "rt")
+    return gzip.open(path, "rt")
 
 
 def is_float(value):
@@ -61,120 +68,153 @@ def parse_gc_percent(value):
         return None
 
 
-def calculate_assembly_stats(url, target_taxid, sample_name, assembly_length, total_tax, sample_gc_percent, found):
+def iqr_filter(values):
     """
-    Stream through the NCBI assembly_summary_refseq.txt file,
-    compute mean genome_size (after IQR filtering) and mean gc_percent
-    for all records matching the target_taxid.
+    Apply IQR filtering to a list of numeric values.
+    """
+    if len(values) < 4:
+        return values
+
+    q1 = np.percentile(values, 25)
+    q3 = np.percentile(values, 75)
+    iqr = q3 - q1
+
+    lower = q1 - 1.5 * iqr
+    upper = q3 + 1.5 * iqr
+
+    return [v for v in values if lower <= v <= upper]
+
+
+def summarize(values):
+    if not values:
+        return ["NA"] * 6
+
+    return [
+        min(values),
+        max(values),
+        statistics.median(values),
+        statistics.mean(values),
+        statistics.stdev(values) if len(values) >= 2 else 0,
+        len(values)
+    ]
+
+def bp_to_mb(value):
+    """
+    Convert base pairs to megabase pairs (Mb).
+    """
+    return value / 1_000_000
+
+
+def calculate_assembly_stats(assembly_summary_file):
+    """
+    Stream the RefSeq assembly summary file and compute
+    per-taxid aggregated statistics.
+    Output the NCBI_Assembly_stats_{YYMMDD}.txt file.
     """
 
-    logging.info(f"Fetching NCBI assembly summary for taxid {target_taxid} ...")
+    # Initialize the tax ID dictionary
+    taxid_data = defaultdict(lambda: {
+        "species": None,
+        "genome_size": [],
+        "gc_percent": [],
+        "cds_count": []
+    })
 
-    genome_sizes = []
-    gc_percents = []
-
-    try:
-        with urllib.request.urlopen(url) as response:
-            for raw_line in response:
-                line = raw_line.decode("utf-8").strip()
-                if not line or line.startswith("#"):
-                    continue
-
-                cols = line.split("\t")
-                if len(cols) <= 27:  # At minimum, column count should go to column 27 (zero-based numbering), which is 'gc_percent'. 
-                    continue
-
-                taxid = cols[5].strip()
-                if taxid != str(target_taxid):
-                    continue  # skip rows that are not target tax ID
-
-                if total_tax == None:
-                    total_tax = cols[7].strip()
-
-                found = True
-
-                genome_size_val = cols[25].strip()
-                gc_percent_val = parse_gc_percent(cols[27].strip())  # Remove all gc_percent values over 100
-
-                # Handle strings in genome_size and validate numeric fields
-                if is_float(genome_size_val) and gc_percent_val is not None:
-                    genome_size = float(genome_size_val)
-                    gc_percent = float(gc_percent_val)
-                    genome_sizes.append(genome_size)
-                    gc_percents.append(gc_percent)
-                else:
-                    logging.debug(
-                        f"Skipping malformed entry for taxid {taxid}: genome_size='{genome_size_val}', gc_percent='{gc_percent_val}'"
-                    )
-        
-        if not found:
-            logging.warning(f"No NCBI matches found for target taxid '{target_taxid}'")
-            return None
-
-        if not genome_sizes:
-            logging.warning(f"No valid genome entries found for taxid {target_taxid}")
-            return None, None
-
-        # --- IQR filtering on genome_size and gc_percent ---
-        Q1 = np.percentile(genome_sizes, 25)
-        Q3 = np.percentile(genome_sizes, 75)
-        IQR = Q3 - Q1
-
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-
-        filtered_sizes = [x for x in genome_sizes if lower_bound <= x <= upper_bound]  # Remove outliers
-
-        Q1_gc = np.percentile(gc_percents, 25)
-        Q3_gc = np.percentile(gc_percents, 75)
-        IQR_gc = Q3_gc - Q1_gc
-
-        gc_lower_bound = Q1_gc - 1.5 * IQR_gc
-        gc_upper_bound = Q3_gc + 1.5 * IQR_gc
-
-        filtered_gc = [x for x in gc_percents if gc_lower_bound <= x <= gc_upper_bound]  # Remove GC% outliers
-
-        if not filtered_sizes or not filtered_gc:
-            logging.warning(f"All values filtered out for taxid {target_taxid}")
-            return None
-
-        # Final stats
-        expected_length = statistics.mean(filtered_sizes)  # Mean genome size
-        # For continuity, only calculate std dev for species with 10 or more references
-        if len(filtered_sizes) >= 10:
-            stdev_genome_size = statistics.stdev(filtered_sizes)
-            if int(assembly_length) > int(expected_length):
-                bigger = int(assembly_length)
-                smaller = int(expected_length)
-            else:
-                smaller = int(assembly_length)
-                bigger = int(expected_length)
-
-            logging.debug("Calculating the standard deviations")
-            stdevs = (bigger - smaller) / stdev_genome_size
-
-        else:
-            stdev_genome_size = "Not calculated on species with n<10 references"
-            stdevs = "NA"
-        
-        ## GC
-        species_gc_mean = statistics.mean(gc_percents)
-        gc_min = min(gc_percents)
-        gc_max = max(gc_percents)
-        gc_count = len(gc_percents)
-        species_gc_percent_stdev = statistics.stdev(filtered_gc) if len(filtered_gc) >= 10 else "Not calculated on species with n<10 references" 
+    logging.info("Reading assembly summary file...")
 
 
-        logging.info(
-            f"Taxid {target_taxid}: mean genome_size (IQR-filtered) = {expected_length:.2f}, "
-            f"mean GC% = {species_gc_mean:.2f} (n={len(filtered_sizes)})"
-        )
+    with open_gzip(assembly_summary_file) as fh:
+        for line in fh:
+            if line.startswith("#"):
+                continue
 
-        # with open(f"NCBI_Assembly_stats_{timestamp}.txt", 'w') as outfile:
-        #             outfile.write(f"Sample: {sample_name}\nTax: {total_tax}\nNCBI_TAXID: {target_taxid}\nSpecies_GC_StDev: {species_gc_percent_stdev}\nSpecies_GC_Min: {gc_min}\nSpecies_GC_Max: {gc_max}\nSpecies_GC_Mean: {species_gc_mean}\nSpecies_GC_Count: {gc_count}\nSample_GC_Percent: {sample_gc_percent}")
+            fields = line.rstrip("\n").split("\t")
 
-        # List of column headers: Species, Min, Max, Median, Mean, StDev, Assembly_count, GC_Min, GC_Max, GC_Median, GC_Mean, GC_Stdev, GC_count, CDS_Min, CDS_Max, CDS_Median, CDS_Mean, CDS_Stdev, CDS_count, Consensus_TAXID
+            try:
+                taxid = int(fields[5])
+                organism_name = fields[7]
+                genome_size = fields[25]
+                gc_percent = parse_gc_percent(fields[27])
+                cds = fields[35]
+            except (IndexError, ValueError):
+                continue
+
+            entry = taxid_data[taxid]
+
+            if entry["species"] is None:
+                entry["species"] = organism_name
+            elif entry["species"] != organism_name:
+                logging.debug(
+                    f"TaxID {taxid} has multiple organism names: "
+                    f"{entry['species']} vs {organism_name}"
+                )
+
+            if is_float(genome_size):
+                entry["genome_size"].append(float(genome_size))
+
+            if gc_percent is not None:
+                entry["gc_percent"].append(gc_percent)
+
+            if is_float(cds):
+                entry["cds_count"].append(int(float(cds)))
+
+    logging.info(f"Collected data for {len(taxid_data)} tax IDs")
+
+    records = []
+
+    for taxid, data in taxid_data.items():
+        gs = iqr_filter(data["genome_size"])
+        gc = iqr_filter(data["gc_percent"])
+        cds = iqr_filter(data["cds_count"])
+
+        gs_min, gs_max, gs_med, gs_mean, gs_sd, gs_n = summarize(gs)
+        gc_min, gc_max, gc_med, gc_mean, gc_sd, gc_n = summarize(gc)
+        cds_min, cds_max, cds_med, cds_mean, cds_sd, cds_n = summarize(cds)
+
+        # Convert genome size stats to Mb
+        if gs_min != "NA":
+            gs_min = bp_to_mb(gs_min)
+            gs_max = bp_to_mb(gs_max)
+            gs_med = bp_to_mb(gs_med)
+            gs_mean = bp_to_mb(gs_mean)
+            gs_sd = bp_to_mb(gs_sd)
+
+        records.append([
+            data["species"],
+            gs_min, gs_max, gs_med, gs_mean, gs_sd, gs_n,
+            gc_min, gc_max, gc_med, gc_mean, gc_sd, gc_n,
+            cds_min, cds_max, cds_med, cds_mean, cds_sd, cds_n,
+            taxid
+        ])
+
+    return records
+
+
+def main():
+    args = parse_args()
+
+    if args.version:
+        print("assembly-stats-db v0.1.0")
+        return
     
-    except Exception as e:
-        logging.error(f"Error computing taxid genome stats for {target_taxid}: {e}")
-        return None
+    records = calculate_assembly_stats(args.path_database)
+
+    output_db = f"NCBI_Assembly_Stats_{timestamp}.txt"
+
+    header = [
+        "Species",
+        "Min", "Max", "Median", "Mean", "StDev", "Assembly_count",
+        "GC_Min", "GC_Max", "GC_Median", "GC_Mean", "GC_Stdev", "GC_count",
+        "CDS_Min", "CDS_Max", "CDS_Median", "CDS_Mean", "CDS_Stdev", "CDS_count",
+        "Consensus_TAXID"
+    ]
+
+    logging.info(f"Writing output file: {output_db}")
+
+    with open(output_db, "w") as out:
+        out.write("\t".join(header) + "\n")
+        for record in records:
+            out.write("\t".join(map(str, record)) + "\n")
+
+if __name__ == "__main__":
+    main()
