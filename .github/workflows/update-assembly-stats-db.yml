@@ -25,7 +25,6 @@ jobs:
 
       - name: Set date variables
         run: |
-          echo "YYMMDD=$(date +%y%m%d)" >> $GITHUB_ENV
           echo "YYYYMMDD=$(date +%Y%m%d)" >> $GITHUB_ENV
 
       - name: Create asset directories
@@ -35,30 +34,30 @@ jobs:
 
       - name: Download RefSeq assembly summary (gzipped)
         run: |
-          curl -L https://ftp.ncbi.nlm.nih.gov/genomes/refseq/assembly_summary_refseq.txt | gzip -c > assets/summary/assembly_summary_refseq_${YYMMDD}.txt.gz
+          curl -L https://ftp.ncbi.nlm.nih.gov/genomes/refseq/assembly_summary_refseq.txt | gzip -c > assets/summary/assembly_summary_refseq_${YYYYMMDD}.txt.gz
 
       - name: Remove old summary files
         run: |
-          ls assets/summary/assembly_summary_refseq_*.txt.gz| grep -v "${YYMMDD}" | xargs -r rm
+          ls assets/summary/assembly_summary_refseq_*.txt.gz| grep -v "${YYYYMMDD}" | xargs -r rm
 
       - name: Generate assembly statistics database
         run: |
-          python3 bin/calculate_assembly_stats.py -d assets/summary/assembly_summary_refseq_${YYMMDD}.txt.gz
+          python3 bin/calculate_assembly_stats.py -d assets/summary/assembly_summary_refseq_${YYYYMMDD}.txt.gz
 
       - name: Move generated database to assets directory
         run: |
-          mv NCBI_Assembly_Stats_${YYYYMMDD}.txt assets/database/NCBI_Assembly_Stats_${YYMMDD}.txt
+          mv NCBI_Assembly_Stats_${YYYYMMDD}.txt assets/database/NCBI_Assembly_Stats_${YYYYMMDD}.txt
 
       - name: Remove old generated databases
         run: |
-          ls assets/database/NCBI_Assembly_Stats_*.txt | grep -v "${YYMMDD}" | xargs -r rm
+          ls assets/database/NCBI_Assembly_Stats_*.txt | grep -v "${YYYYMMDD}" | xargs -r rm
 
       - name: Commit and push updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add assets/summary assets/database
-          git commit -m "Monthly update: RefSeq assembly stats (${YYMMDD})" || echo "No changes to commit"
+          git commit -m "Monthly update: RefSeq assembly stats (${YYYYMMDD})" || echo "No changes to commit"
           git push
       
       - name: Create GitHub Release
@@ -70,12 +69,12 @@ jobs:
             Automated monthly update of the RefSeq assembly statistics database.
 
             **Source file**
-            - assembly_summary_refseq_${{ env.YYMMDD }}.txt.gz
+            - assembly_summary_refseq_${{ env.YYYYMMDD }}.txt.gz
 
             **Generated database**
-            - NCBI_Assembly_Stats_${{ env.YYMMDD }}.txt
+            - NCBI_Assembly_Stats_${{ env.YYYYMMDD }}.txt
 
           files: |
-            assets/database/NCBI_Assembly_Stats_${{ env.YYMMDD }}.txt
+            assets/database/NCBI_Assembly_Stats_${{ env.YYYYMMDD }}.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
