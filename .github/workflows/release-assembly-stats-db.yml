@@ -1,0 +1,43 @@
+name: Release NCBI Assembly Stats Database
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine current database file
+        id: database
+        run: |
+          DB_FILE=$(ls assets/database/NCBI_Assembly_Stats_*.txt | sort | tail -n1)
+          DATE=$(basename "$DB_FILE" | sed 's/NCBI_Assembly_Stats_\(.*\)\.txt/\1/')
+
+          echo "db_file=$DB_FILE" >> $GITHUB_OUTPUT
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.database.outputs.date }}
+          name: NCBI Assembly Stats Database – ${{ steps.database.outputs.date }}
+          body: |
+            Automated monthly update of the RefSeq assembly statistics database.
+
+            Generated database:
+
+            - ${{ steps.database.outputs.db_file }}
+
+          files: |
+            ${{ steps.database.outputs.db_file }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
