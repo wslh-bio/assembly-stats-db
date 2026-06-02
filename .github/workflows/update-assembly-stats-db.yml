@@ -52,29 +52,19 @@ jobs:
         run: |
           ls assets/database/NCBI_Assembly_Stats_*.txt | grep -v "${YYYYMMDD}" | xargs -r rm
 
-      - name: Commit and push updates
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/summary assets/database
-          git commit -m "Monthly update: RefSeq assembly stats (${YYYYMMDD})" || echo "No changes to commit"
-          git push
-      
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
         with:
-          tag_name: v${{ env.YYYYMMDD }}
-          name: NCBI Assembly Stats Database – ${{ env.YYYYMMDD }}
+          commit-message: "Monthly update: RefSeq assembly stats (${{ env.YYYYMMDD }})"
+          title: "Monthly update: RefSeq assembly stats (${{ env.YYYYMMDD }})"
           body: |
             Automated monthly update of the RefSeq assembly statistics database.
 
-            **Source file**
-            - assembly_summary_refseq_${{ env.YYYYMMDD }}.txt.gz
+            ## Generated files
 
-            **Generated database**
+            - assembly_summary_refseq_${{ env.YYYYMMDD }}.txt.gz
             - NCBI_Assembly_Stats_${{ env.YYYYMMDD }}.txt
 
-          files: |
-            assets/database/NCBI_Assembly_Stats_${{ env.YYYYMMDD }}.txt
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            Generated automatically by GitHub Actions.
+          branch: automated/monthly-update
+          delete-branch: true
