@@ -175,11 +175,11 @@ The database is updated automatically **once per month** using a scheduled GitHu
 schedule:
   - cron: "0 2 1 * *"
 ```  
-This means the workflow will run at 02:00 UTC on the 1st day of every month
+This means the workflow will run at **02:00 UTC** on the **1st day of every month**
 
 ## Release behavior:
 
 A GitHub Release is created automatically after each successful merge into `main`.
-  - Trigger: push to main
-  - Tag format: vYYYYMMDD
-  - Assets: latest NCBI_Assembly_Stats_YYYYMMDD.txt
+  - Trigger: push to `main`
+  - Tag format: `vYYYYMMDD`
+  - Assets: latest `NCBI_Assembly_Stats_YYYYMMDD.txt`
