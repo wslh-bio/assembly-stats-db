@@ -131,7 +131,6 @@ The workflow performs the following steps:
 
 3. **Creates a Pull Request automatically**
     - A GitHub Actions workflow opens a PR containing the updated files
-    - Changes are not committed directly to main
 
 4. **Merge to main triggers release**
    - Once the PR is merged, a release workflow publishes a new versioned GitHub Release
