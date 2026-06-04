@@ -1,6 +1,6 @@
 # assembly-stats-db
 
-This repository is for a tool that builds a per-species (per-taxid) statistics database of aggregated genome assembly statistics from the [NCBI RefSeq Genomes Assembly Summary File](https://ftp.ncbi.nlm.nih.gov/genomes/refseq/assembly_summary_refseq.txt)
+This repository builds a per-species (per-taxid) statistics database of aggregated genome assembly statistics from the [NCBI RefSeq Genomes Assembly Summary File](https://ftp.ncbi.nlm.nih.gov/genomes/refseq/assembly_summary_refseq.txt)
 
 
 ---
@@ -101,7 +101,7 @@ The script generates the aggregated database named:
 
 ## Automated Monthly Database Updates (GitHub Actions)
 
-This repository includes a GitHub Actions workflow that automatically updates the RefSeq assembly statistics database on a monthly basis.
+This repository uses GitHub Actions to automatically generate a monthly update of the RefSeq assembly statistics database.
 
 The workflow performs the following steps:
 
@@ -129,12 +129,22 @@ The workflow performs the following steps:
      assets/database/NCBI_Assembly_Stats_YYMMDD.txt
      ```
 
-3. **Overwrites previous databases**
-   - Only one summary file and one generated database are retained at any time.
-   - Each monthly update replaces the previous version.
+3. **Creates a Pull Request automatically**
+    - A GitHub Actions workflow opens a PR containing the updated files
 
-4. **Commits the updated files back to the repository**
-   - Commits are created automatically by the GitHub Actions bot.
+4. **Merge to main triggers release**
+   - Once the PR is merged, a release workflow publishes a new versioned GitHub Release
+
+---
+
+## PR-Based Automation Model
+
+This repository uses a pull request-based automation that ensures reproducibility and auditability of all database updates:
+
+  - All automated updates are submitted as pull requests
+  - The `main` branch is protected from direct pushes
+  - Each update is reviewable and traceable
+  - Releases are generated only after PR merge
 
 ---
 
@@ -151,7 +161,8 @@ assembly-stats-db
 │   └── calculate_assembly_stats.py
 ├── .github
 │   └── workflows
-│       └── update-assembly-stats.yml
+│       ├── update-assembly-stats-db.yml
+│       └── release-assembly-stats-db.yml
 ```
 
 ---
@@ -164,8 +175,11 @@ The database is updated automatically **once per month** using a scheduled GitHu
 schedule:
   - cron: "0 2 1 * *"
 ```  
-This means the workflow will run at 02:00 UTC on the 1st day of every month
+This means the workflow will run at **02:00 UTC** on the **1st day of every month**
 
 ## Release behavior:
 
-Each run generates a new GitHub Release tagged with the date (YYMMDD).
+A GitHub Release is created automatically after each successful merge into `main`.
+  - Trigger: push to `main`
+  - Tag format: `vYYYYMMDD`
+  - Assets: latest `NCBI_Assembly_Stats_YYYYMMDD.txt`
